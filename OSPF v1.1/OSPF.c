@@ -9,7 +9,7 @@
 /******************结构体******************/
 typedef struct point
 {
-    int id;  //点的ID
+    int id;  //点 ID
     int dist[point_max];  //该点到其他点的最短距离
     int path[point_max];  //路径
     int table[point_max][3];

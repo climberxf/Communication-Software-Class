@@ -1,4 +1,4 @@
-/***************v1.1版本******************
+/***************v2.1版本******************
 *功能实现：手动输入邻接矩阵，最短路径实现
 ******************************************/
 #include <stdio.h>
@@ -14,6 +14,7 @@ typedef struct point
     int id;  //点的ID
     int dist[point_max];  //该点到其他点的最短距离
     int path[point_max];  //路径
+    int table[point_max][3];
 }POINT;
 typedef struct graph
 {
@@ -22,7 +23,7 @@ typedef struct graph
 }GRAPH;
 /******************函数******************/
 void djk(int s,GRAPH G,POINT *p);
-void printRes(int p_id,POINT p,int n);
+void printRes(int p_id,GRAPH G,POINT *p);
 void sleep(int count);
 
 int main()
@@ -100,7 +101,7 @@ int main()
         djk(i,G,&pointInfo[i]);
     }
     for(int i = 0; i < G.n; i++)
-        printRes(i,pointInfo[i],G.n); //进行最短路径打印
+        printRes(i,G,&pointInfo[i]); //进行最短路径打印
 }
 /*********************************************************
 *函数功能：计算图G中s到其他点的最短路径
@@ -114,6 +115,7 @@ int main()
 void djk(int s,GRAPH G,POINT *p)
 {
     int flag[point_max]={0}, n_min;
+    p->id=s;
     for(int i = 0; i < G.n; i++)
     {
         p->dist[i]=inf;
@@ -152,30 +154,31 @@ void djk(int s,GRAPH G,POINT *p)
 *修改记录：
 *v1.0    2023.4.9
 *********************************************************/
-void printRes(int p_id,POINT p,int n)
+void printRes(int p_id,GRAPH G,POINT *p)
 {
-    int a[point_max],count,x;
+    int a[point_max],count,x,i=0;
     printf("节点%d:\n",p_id+1);
-    for(int e=0;e<n;e++)
+    for(int e=0;e<G.n;e++)
     {
-        if(e == p_id)
-            printf("%d->%d =0\n",p_id+1,e+1);
-        else if(p.path[e]==-1)
-            printf("%d->%d 无路径\n",p_id+1,e+1);
-        else
+        if(e == p_id || p->path[e] == -1)
+            continue;
+        count=0;
+        x=e;
+        while(p_id!=x)
         {
-            count=0;
-            x=e;
-            while(p_id!=x)
-            {
-                a[count++]=x;
-                x=p.path[x];
-            }
-            a[count]=x;
-            for(int i=count;i>0;i--)
-                printf("%d->",a[i]+1);
-            printf("%d =%d\n",a[0]+1,p.dist[e]);
+            a[count++]=x;
+            x=p->path[x];
         }
+        count--;
+        p->table[i][0]=e+1;
+        p->table[i][1]=a[count]+1;
+        p->table[i][2]=G.edges[p_id][a[count]];
+        i++;   
+    }
+    printf("目的地址\t下一跳地址\t最小距离\n");
+    for(int j=0;j<i;j++)
+    {
+        printf("%-8d\t%-8d\t%-8d\n",p->table[j][0],p->table[j][1],p->table[j][2]);
     }
 }
 /*********************************************************

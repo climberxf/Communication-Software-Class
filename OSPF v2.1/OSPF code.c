@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #define point_max 10
 #define  inf 65535
 #define numPoints 6
@@ -36,7 +37,7 @@ int main()
     
  	while(1)
  	{
-    	//srand((unsigned)time(NULL));
+    	srand((unsigned)time(NULL));
     	int routeId=rand()%numPoints;//随机获取节点
     	sleep(rand()%100);//随机休眠
     	if(fld_done==1)

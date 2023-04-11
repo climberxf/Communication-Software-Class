@@ -1,5 +1,5 @@
-/***************v2.1版本******************
-*功能实现：手动输入邻接矩阵，最短路径实现
+/***************v3.1版本******************
+*功能实现：线程实现随机性，最短路径实现，节点老化，增加节点功能
 ******************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,15 +14,15 @@ struct point
     int id;  //点的ID
     int dist[point_max];  //该点到其他点的最短距离
     int path[point_max];  //路径
-    int table[point_max][3];
+    int table[point_max][3]; //转发表
 };
 typedef struct graph
-{
-    int n;
-    int edges[point_max][point_max];
+{//图
+    int n;  //图的节点数
+    int edges[point_max][point_max];  //图的邻接矩阵
 }GRAPH;
 typedef struct pth
-{
+{//用于存放洪范函数所需要的变量
     GRAPH *graph;//图
     int num;//要洪范的id
 }PTH;
@@ -36,8 +36,8 @@ void addNode(GRAPH *G);
 
 int main()
 {
-    GRAPH G;
-    struct point pointInfo[point_max];
+    GRAPH G; //初始化图
+    struct point pointInfo[point_max]; //每个节点的相关信息
     G.n=numPoints;
     for(int i=0;i<G.n;i++)
         for(int j=0;j<G.n;j++)
@@ -77,10 +77,10 @@ int main()
         djk(i,G,&pointInfo[i]);
     }
     for(int i = 0; i < G.n; i++)
-        printRes(i,G,&pointInfo[i]); //进行最短路径打印
+        printRes(i,G,&pointInfo[i]); //进行转发表打印
 
     while(1)
-    {
+    {//功能选择
         int func;
         printf("请选择功能:\n");
         printf("1.节点老化\n2.增加节点\n");
@@ -99,12 +99,12 @@ int main()
         }
         printf("最新的转发表:\n");
         for(int i = 0; i < G.n; i++)
-            printRes(i,G,&pointInfo[i]); //进行最短路径打印
+            printRes(i,G,&pointInfo[i]); //进行路由表打印
     }
 }
 /*********************************************************
 *函数功能：计算图G中s到其他点的最短路径
-*函数原型： void djk(int s,GRAPH G,POINT *p)
+*函数原型： void djk(int s,GRAPH G,struct point *p)
 *函数说明： s为起点编号，G为图的结构体，*p为节点信息的结构体
 *返回值：void型
 *创建人：奚兴发
@@ -145,9 +145,9 @@ void djk(int s,GRAPH G,struct point *p)
     }
 }
 /*********************************************************
-*函数功能：输出从p_id为起点到各个节点的路径与最小值
-*函数原型： void printRes(int p_id,POINT p,int n)
-*函数说明： p_id为起点节点编号，p为起点节点信息，n为节点数
+*函数功能：输出p_id节点的转发表
+*函数原型： void printRes(int p_id,GRAPH G,struct point *p)
+*函数说明： p_id为起点节点编号，p为起点节点信息结构体指针，G为图指针
 *返回值：void型
 *创建人：奚兴发
 *修改记录：
@@ -197,7 +197,7 @@ void sleep(int count)
 }
 /*********************************************************
 *函数功能：线程函数，随机洪范
-*函数原型： void *init();
+*函数原型： DWORD WINAPI Initial(LPVOID g)
 *函数说明： g指向变量G（图）
 *返回值：void*型
 *创建人：奚兴发
@@ -247,10 +247,10 @@ DWORD WINAPI Initial(LPVOID g)
     }
 }
 /*********************************************************
-*函数功能：线程函数，随机洪范
-*函数原型： void *init();
-*函数说明： g指向变量G（图）
-*返回值：void*型
+*函数功能：更新图的权重信息
+*函数原型： void updateNode(GRAPH *G)
+*函数说明： G指向图的结构体
+*返回值：void 型
 *创建人：奚兴发
 *修改记录：
 *v1.0    2023.4.9
@@ -269,6 +269,15 @@ void updateNode(GRAPH *G)
         G->edges[b-1][a-1]=dist;
     }
 }
+/*********************************************************
+*函数功能：更新图的节点
+*函数原型： void addNode(GRAPH *G)
+*函数说明： G指向图的结构体
+*返回值：void 型
+*创建人：奚兴发
+*修改记录：
+*v1.0    2023.4.9
+*********************************************************/
 void addNode(GRAPH *G)
 {
     int add_node;

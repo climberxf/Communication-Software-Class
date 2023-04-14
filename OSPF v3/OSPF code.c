@@ -1,4 +1,4 @@
-/***************v3.1版本******************
+/***************v3.4版本******************
 *功能实现：线程实现随机性，最短路径实现，节点老化，增加节点功能
 ******************************************/
 #include <stdio.h>
@@ -357,7 +357,7 @@ void deleteNode(GRAPH *G,struct point p[])
 *返回值：void 型
 *创建人：奚兴发
 *修改记录：
-*v1.0    2023.4.9
+*v1.1    2023.4.14
 *********************************************************/
 void printMatrix(GRAPH *G,struct point p[])
 {
@@ -370,7 +370,7 @@ void printMatrix(GRAPH *G,struct point p[])
         printf("NODE[%d] ",p[i].id);
         for(int j=1;j<=G->n;j++)
         {
-            printf("%-5d\t",p[p[i].id].closePointsDist[p[j].id]);
+            printf("%-5d\t",p[i].closePointsDist[p[j].id]);
         }
         printf("\n");
     }
@@ -382,7 +382,7 @@ void printMatrix(GRAPH *G,struct point p[])
 *返回值：void 型
 *创建人：奚兴发
 *修改记录：
-*v1.0    2023.4.9
+*v1.1   2023.4.14
 *********************************************************/
 void listDelete(int deleteId,struct point p[],GRAPH G)
 {
@@ -397,4 +397,6 @@ void listDelete(int deleteId,struct point p[],GRAPH G)
     }
     for(int i=delete_n;i<=G.n-1;i++)
         p[i]=p[i+1];
+    for(int i=1;i<=G.n-1;i++)
+        p[i].closePointsDist[deleteId]=inf;
 }

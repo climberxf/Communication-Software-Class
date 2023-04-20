@@ -1,0 +1,12 @@
+﻿################################################################################
+# 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
+################################################################################
+
+/BMP/BMP task1/.vs/Project1
+/BMP/BMP task1/x64/Debug
+/BMP/BMP task1/bmp_test1.bmp
+/BMP/BMP task1/bmp_test2.bmp
+/BMP/BMP task1/Project1.sln
+/BMP/BMP task1/Project1.vcxproj
+/BMP/BMP task1/Project1.vcxproj.filters
+/BMP/BMP task1/Project1.vcxproj.user

@@ -47,8 +47,7 @@ int main()
 		printf("fail to open newBmpDocument.bmp");
 		exit(0);
 	}
-	fwrite(&header, sizeof(header), 1, fp2);
-	fwrite(&info, sizeof(info), 1, fp2);
+
 	int function;
 	do
 	{
@@ -63,15 +62,13 @@ int main()
 		case 0:
 			break;
 		case 1:
-			fseek(fp, header.bfOffBits, SEEK_SET);
 			changeFrameData(info, pD);
-			writeData(fp2, info, pD);//赋值添加边框的像素数据
+			writeData(fp2, info, header, pD);//赋值添加边框的像素数据
 			gray_flag = 0;
 			break;
 		case 2:
-			fseek(fp, header.bfOffBits, SEEK_SET);
 			bmpToGray(info, pD);
-			writeData(fp2, info, pD);
+			writeData(fp2, info, header ,pD);
 			gray_flag = 1;
 			break;
 		case 3:

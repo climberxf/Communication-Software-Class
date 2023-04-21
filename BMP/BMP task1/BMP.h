@@ -11,16 +11,20 @@ typedef struct
 }pixelData;//像素数据相关数据
 
 /*********************************************************
-*函数功能：将新的BMP文件的像素数据写入新的BMP文件
-*函数原型： int writeData(FILE* fp, BITMAPINFOHEADER info, pixelData pD)
-*函数说明： fp为新的BMP文件指针，info为原BMP文件头信息，pD为像素数据结构体
+*函数功能：将新的BMP文件的像素数据、文件头、信息头写入新的BMP文件
+*函数原型： int writeData(FILE* fp, BITMAPINFOHEADER info, BITMAPFILEHEADER header, pixelData pD)
+*函数说明： fp为新的BMP文件指针，info为原BMP文件头信息，header为文件头，pD为像素数据结构体
 *返回值：int 型
 *创建人：奚兴发
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-int writeData(FILE* fp, BITMAPINFOHEADER info, pixelData pD)
+int writeData(FILE* fp, BITMAPINFOHEADER info, BITMAPFILEHEADER header, pixelData pD)
 {
+	//添加文件头与信息头
+	fwrite(&header, sizeof(header), 1, fp);
+	fwrite(&info, sizeof(info), 1, fp);
+	fseek(fp, header.bfOffBits, SEEK_SET);
 	//写入修改了的像素数据
 	for (int y = 0; y < info.biHeight; y++)
 	{

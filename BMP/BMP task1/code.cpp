@@ -2,24 +2,17 @@
 #include <stdlib.h>
 #include <Windows.h>
 #include <wingdi.h>
-#define format "D:\\users\\documents\\code_C\\Communication Software\\BMP\\BMP task1\\bmp_test%d.bmp"//路径模板
-
-typedef struct
-{
-	unsigned char* data;//像素数据头地址
-	int  row_size;//像素数据每一行的字节数
-}pixelData;//像素数据相关数据
-
-int writeData(FILE* fp, BITMAPINFOHEADER info, pixelData pD);
-int addFrameData(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, pixelData pD);
+#include "BMP.h"
+int gray_flag = 0;
 int main()
 {
 	char path1[100];
-	sprintf_s(path1, format, 1);//赋值第一个原始文件的路径
+	printf("请输入BMP文件地址：\n");
+	gets_s(path1, 99);
 	FILE* fp;
 	if (fopen_s(&fp, path1, "rb") != 0)
 	{
-		printf("fail to open bmp_test1.bmp");
+		printf("fail to open %s",path1);
 		exit(0);
 	}
 
@@ -49,88 +42,43 @@ int main()
 	fclose(fp);
 
 	FILE* fp2;
-	char path2[100];
-	sprintf_s(path2, format, 2);
-	if (fopen_s(&fp2, path2, "wb") != 0)
+	if (fopen_s(&fp2, "newBmpDocument.bmp", "wb") != 0)
 	{
-		printf("fail to open bmp_test2.bmp");
+		printf("fail to open newBmpDocument.bmp");
 		exit(0);
 	}
-
-	//对新的BMP文件赋值
 	fwrite(&header, sizeof(header), 1, fp2);
 	fwrite(&info, sizeof(info), 1, fp2);
-	writeData(fp2, info, pD);//赋值添加边框的像素数据
+	int function;
+	do
+	{
+		printf("\n\n请继续操作\n");
+		printf("功能:\n");
+		printf("0.退出程序\n1.添加彩色边框\n2.转化为灰色图\n3.建立灰度直方图\n");
+		printf("请选择功能序号：");
+		scanf_s("%d", &function);
 
+		switch (function)
+		{
+		case 0:
+			break;
+		case 1:
+			fseek(fp, header.bfOffBits, SEEK_SET);
+			changeFrameData(info, pD);
+			writeData(fp2, info, pD);//赋值添加边框的像素数据
+			gray_flag = 0;
+			break;
+		case 2:
+			fseek(fp, header.bfOffBits, SEEK_SET);
+			bmpToGray(info, pD);
+			writeData(fp2, info, pD);
+			gray_flag = 1;
+			break;
+		case 3:
+			buildHistogram(pD.data, info.biWidth * info.biHeight, gray_flag, info.biBitCount/8);
+			break;
+		}
+	} while (function);
 	fclose(fp2);
 	free(pD.data);
-}
-
-/*********************************************************
-*函数功能：对BMP文件的像素数据进行改变（添加彩色边框），并写入新的BMP文件
-*函数原型： int writeData(FILE* fp, BITMAPINFOHEADER info, pixelData pD)
-*函数说明： fp为新的BMP文件指针，info为原BMP文件头信息，pD为像素数据结构体
-*返回值：int 型
-*创建人：奚兴发
-*修改记录：
-*v1.1    2023.4.20
-*********************************************************/
-int writeData(FILE* fp, BITMAPINFOHEADER info, pixelData pD)
-{
-	int wid;
-	printf("请输入彩色边框的宽度(单位：像素):");
-	scanf_s("%d", &wid);
-
-	RGBTRIPLE rgb[6] = { {255,0,0},{0,255,0},{0,0,255},{255,0,0},{0,255,0},{0,0,255} };
-	//修改图片底部的颜色
-	addFrameData(0, info.biWidth - 1, 0, wid - 1, info, rgb[0], pD);
-	//修改文件右侧的颜色
-	addFrameData(info.biWidth - wid, info.biWidth - 1, 0, info.biHeight - 1, info, rgb[1], pD);
-	//修改文件上侧的颜色
-	addFrameData(0, info.biWidth - 1, info.biHeight - wid, info.biHeight - 1, info, rgb[2], pD);
-	//修改文件左侧的颜色
-	addFrameData(0, wid - 1, 0, info.biHeight / 3 - 1, info, rgb[3], pD);
-	addFrameData(0, wid - 1, info.biHeight / 3, info.biHeight * 2 / 3 - 1, info, rgb[4], pD);
-	addFrameData(0, wid - 1, info.biHeight * 2 / 3, info.biHeight - 1, info, rgb[5], pD);
-	//写入修改了的像素数据
-	for (int y = 0; y < info.biHeight; y++)
-	{
-		for (int x = 0; x < info.biWidth; x++)
-		{
-			unsigned char* pixel = pD.data + y * pD.row_size + x * info.biBitCount / 8;
-			//pixel指向（x，y）位置处的像素的第一个像素信息
-			fwrite(pixel, sizeof(unsigned char), info.biBitCount / 8, fp);
-		}
-	}
-	return 0;
-}
-/*********************************************************
-*函数功能：在位图像素数据指定的矩形区域中加入对应的rgb数据
-*函数原型： int addFrameData(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, pixelData pD)
-*函数说明： startX, endX, startY, endY分别为x,y的起始处0<=x(y)<info.biWidth(info.biHeight)
-			info为原BMP文件的信息头，rgb为要添加的rgb数据，pD为像素信息结构体
-*返回值：int 型，若startX, endX, startY, endY未超出范围函数则返回1，否则返回0
-*创建人：奚兴发
-*修改记录：
-*v1.1    2023.4.20
-*********************************************************/
-int addFrameData(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, pixelData pD)
-{
-	if (startX < 0 || startY < 0 || endX >= info.biWidth || endY >= info.biHeight)
-	{
-		printf("超出范围，请输入0<=x<%d,0<=y<%d", info.biWidth, info.biHeight);
-		return 0;
-	}
-	else
-	{
-		for (int y = startY; y <= endY; y++)
-		{
-			for (int x = startX; x <= endX; x++)
-			{
-				unsigned char* pixel = pD.data + y * pD.row_size + x * info.biBitCount / 8;
-				pixel[0] = rgb.rgbtBlue; pixel[1] = rgb.rgbtGreen; pixel[2] = rgb.rgbtRed;
-			}
-		}
-		return 1;
-	}
 }

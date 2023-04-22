@@ -3,70 +3,72 @@
 #include <stdlib.h>
 #include <Windows.h>
 #include <wingdi.h>
+#define SOBEL_SIZE 3
 
 typedef struct
 {
-	unsigned char* data;//ÏñËØÊı¾İÍ·µØÖ·
-	BITMAPFILEHEADER header;//ÎÄ¼şÍ·
-	BITMAPINFOHEADER info;//ĞÅÏ¢Í·
-}BMP;//ÏñËØÊı¾İÏà¹ØÊı¾İ
+	unsigned char* data;//åƒç´ æ•°æ®å¤´åœ°å€
+	BITMAPFILEHEADER header;//æ–‡ä»¶å¤´
+	BITMAPINFOHEADER info;//ä¿¡æ¯å¤´
+}BMP;//åƒç´ æ•°æ®ç›¸å…³æ•°æ®
 
 /*********************************************************
-*º¯Êı¹¦ÄÜ£º½«ĞÂµÄBMPÎÄ¼şµÄÏñËØÊı¾İ¡¢ÎÄ¼şÍ·¡¢ĞÅÏ¢Í·Ğ´ÈëĞÂµÄBMPÎÄ¼ş
-*º¯ÊıÔ­ĞÍ£º int writeData(FILE* fp, BITMAPINFOHEADER info, BITMAPFILEHEADER header, pixelData pD)
-*º¯ÊıËµÃ÷£º fpÎªĞÂµÄBMPÎÄ¼şÖ¸Õë£¬infoÎªÔ­BMPÎÄ¼şÍ·ĞÅÏ¢£¬headerÎªÎÄ¼şÍ·£¬pDÎªÏñËØÊı¾İ½á¹¹Ìå
-*·µ»ØÖµ£ºint ĞÍ
-*´´½¨ÈË£ºŞÉĞË·¢
-*ĞŞ¸Ä¼ÇÂ¼£º
+*å‡½æ•°åŠŸèƒ½ï¼šå°†æ–°çš„BMPæ–‡ä»¶çš„åƒç´ æ•°æ®ã€æ–‡ä»¶å¤´ã€ä¿¡æ¯å¤´å†™å…¥æ–°çš„BMPæ–‡ä»¶
+*å‡½æ•°åŸå‹ï¼š int writeData(FILE* fp, BITMAPINFOHEADER info, BITMAPFILEHEADER header, pixelData pD)
+*å‡½æ•°è¯´æ˜ï¼š fpä¸ºæ–°çš„BMPæ–‡ä»¶æŒ‡é’ˆï¼Œinfoä¸ºåŸBMPæ–‡ä»¶å¤´ä¿¡æ¯ï¼Œheaderä¸ºæ–‡ä»¶å¤´ï¼ŒpDä¸ºåƒç´ æ•°æ®ç»“æ„ä½“
+*è¿”å›å€¼ï¼šint å‹
+*åˆ›å»ºäººï¼šå¥šå…´å‘
+*ä¿®æ”¹è®°å½•ï¼š
 *v1.1    2023.4.20
 *********************************************************/
 int writeData(BITMAPINFOHEADER info, BITMAPFILEHEADER header, unsigned char* data)
 {
 	FILE* fp;
-	char path[] = "newBMP.bmp";
+	char path[] = "D:\\users\\documents\\code_C\\Communication Software\\BMP\\BMP task1\\new_bmp.bmp";
 	if (fopen_s(&fp, path, "wb") != 0)
 	{
 		printf("fail to open %s", path);
 		return 0;
 	}
 	int row_size = (info.biWidth * info.biBitCount + 31) / 32 * 4;
-	//Ìí¼ÓÎÄ¼şÍ·ÓëĞÅÏ¢Í·
+	//æ·»åŠ æ–‡ä»¶å¤´ä¸ä¿¡æ¯å¤´
 	fwrite(&header, sizeof(header), 1, fp);
 	fwrite(&info, sizeof(info), 1, fp);
 
 	if (info.biBitCount == 8)
-	{//»Ò¶ÈÍ¼Çé¿ö
+	{//ç°åº¦å›¾æƒ…å†µ
 		unsigned char color_table[1024];
 		for (int i = 0; i < 256; i++) {
-			// ½«µ÷É«°å±íÖĞµÄÃ¿¸öÑÕÉ«Ë÷ÒıµÄ RGB ÖµÉèÎªÏàÍ¬µÄÖµ
+			// å°†è°ƒè‰²æ¿è¡¨ä¸­çš„æ¯ä¸ªé¢œè‰²ç´¢å¼•çš„ RGB å€¼è®¾ä¸ºç›¸åŒçš„å€¼
 			color_table[i * 4] = i;
 			color_table[i * 4 + 1] = i;
 			color_table[i * 4 + 2] = i;
 			color_table[i * 4 + 3] = 0;
 		}
-		fwrite(color_table, sizeof(unsigned char), 1024, fp);//»Ò¶ÈÍ¼ÒªÌí¼Óµ÷É«°å
+		fwrite(color_table, sizeof(unsigned char), 1024, fp);//ç°åº¦å›¾è¦æ·»åŠ è°ƒè‰²æ¿
 	}
 	else
 		fseek(fp, header.bfOffBits, SEEK_SET);
-	//Ğ´ÈëĞŞ¸ÄÁËµÄÏñËØÊı¾İ
+	//å†™å…¥ä¿®æ”¹äº†çš„åƒç´ æ•°æ®
 	fwrite(data, row_size * info.biHeight, 1, fp);
+	fclose(fp);
 	return 1;
 }
 /*********************************************************
-*º¯Êı¹¦ÄÜ£ºÔÚÎ»Í¼ÏñËØÊı¾İÖ¸¶¨µÄ¾ØĞÎÇøÓòÖĞ¼ÓÈë¶ÔÓ¦µÄrgbÊı¾İ
-*º¯ÊıÔ­ĞÍ£º int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, pixelData pD)
-*º¯ÊıËµÃ÷£º startX, endX, startY, endY·Ö±ğÎªx,yµÄÆğÊ¼´¦0<=x(y)<info.biWidth(info.biHeight)
-			infoÎªÔ­BMPÎÄ¼şµÄĞÅÏ¢Í·£¬rgbÎªÒªÌí¼ÓµÄrgbÊı¾İ£¬pDÎªÏñËØĞÅÏ¢½á¹¹Ìå
-*·µ»ØÖµ£ºint ĞÍ£¬ÈôstartX, endX, startY, endYÎ´³¬³ö·¶Î§º¯ÊıÔò·µ»Ø1£¬·ñÔò·µ»Ø0
-*´´½¨ÈË£ºŞÉĞË·¢
-*ĞŞ¸Ä¼ÇÂ¼£º
+*å‡½æ•°åŠŸèƒ½ï¼šåœ¨ä½å›¾åƒç´ æ•°æ®æŒ‡å®šçš„çŸ©å½¢åŒºåŸŸä¸­åŠ å…¥å¯¹åº”çš„rgbæ•°æ®
+*å‡½æ•°åŸå‹ï¼š int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, pixelData pD)
+*å‡½æ•°è¯´æ˜ï¼š startX, endX, startY, endYåˆ†åˆ«ä¸ºx,yçš„èµ·å§‹å¤„0<=x(y)<info.biWidth(info.biHeight)
+			infoä¸ºåŸBMPæ–‡ä»¶çš„ä¿¡æ¯å¤´ï¼Œrgbä¸ºè¦æ·»åŠ çš„rgbæ•°æ®ï¼ŒpDä¸ºåƒç´ ä¿¡æ¯ç»“æ„ä½“
+*è¿”å›å€¼ï¼šint å‹ï¼Œè‹¥startX, endX, startY, endYæœªè¶…å‡ºèŒƒå›´å‡½æ•°åˆ™è¿”å›1ï¼Œå¦åˆ™è¿”å›0
+*åˆ›å»ºäººï¼šå¥šå…´å‘
+*ä¿®æ”¹è®°å½•ï¼š
 *v1.1    2023.4.20
 *********************************************************/
 int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, unsigned char* data)
 {
 	if (startX < 0 || startY < 0 || endX >= info.biWidth || endY >= info.biHeight)
 	{
-		printf("³¬³ö·¶Î§£¬ÇëÊäÈë0<=x<%d,0<=y<%d", info.biWidth, info.biHeight);
+		printf("è¶…å‡ºèŒƒå›´ï¼Œè¯·è¾“å…¥0<=x<%d,0<=y<%d", info.biWidth, info.biHeight);
 		return 0;
 	}
 	else
@@ -84,48 +86,48 @@ int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINF
 	}
 }
 /*********************************************************
-*º¯Êı¹¦ÄÜ£º¸ü¸Ä±ß¿òÏñËØÊı¾İ
-*º¯ÊıÔ­ĞÍ£º int changeFrameData(BITMAPINFOHEADER info, pixelData pD)
-*º¯ÊıËµÃ÷£ºinfoÎªÔ­BMPÎÄ¼şµÄĞÅÏ¢Í·£¬pDÎªÏñËØĞÅÏ¢½á¹¹Ìå
-*·µ»ØÖµ£ºint ĞÍ
-*´´½¨ÈË£ºŞÉĞË·¢
-*ĞŞ¸Ä¼ÇÂ¼£º
+*å‡½æ•°åŠŸèƒ½ï¼šæ›´æ”¹è¾¹æ¡†åƒç´ æ•°æ®
+*å‡½æ•°åŸå‹ï¼š int changeFrameData(BITMAPINFOHEADER info, pixelData pD)
+*å‡½æ•°è¯´æ˜ï¼šinfoä¸ºåŸBMPæ–‡ä»¶çš„ä¿¡æ¯å¤´ï¼ŒpDä¸ºåƒç´ ä¿¡æ¯ç»“æ„ä½“
+*è¿”å›å€¼ï¼šint å‹
+*åˆ›å»ºäººï¼šå¥šå…´å‘
+*ä¿®æ”¹è®°å½•ï¼š
 *v1.1    2023.4.20
 *********************************************************/
 unsigned char* changeFrameData(BITMAPINFOHEADER info, unsigned char* data)
 {
 	int wid;
-	printf("ÇëÊäÈë²ÊÉ«±ß¿òµÄ¿í¶È(µ¥Î»£ºÏñËØ):");
+	printf("è¯·è¾“å…¥å½©è‰²è¾¹æ¡†çš„å®½åº¦(å•ä½ï¼šåƒç´ ):");
 	scanf_s("%d", &wid);
 	int row_size=(info.biWidth * info.biBitCount + 31) / 32 * 4;
 	unsigned char* newData = (unsigned char*)malloc(row_size * info.biHeight * sizeof(unsigned char));
 	memcpy(newData, data, row_size * info.biHeight);
 	RGBTRIPLE rgb[6] = { {255,0,0},{0,255,0},{0,0,255},{255,0,0},{0,255,0},{0,0,255} };
-	//ĞŞ¸ÄÍ¼Æ¬µ×²¿µÄÑÕÉ«
+	//ä¿®æ”¹å›¾ç‰‡åº•éƒ¨çš„é¢œè‰²
 	changeDataOfRectangle(0, info.biWidth - 1, 0, wid - 1, info, rgb[0], newData);
-	//ĞŞ¸ÄÎÄ¼şÓÒ²àµÄÑÕÉ«
+	//ä¿®æ”¹æ–‡ä»¶å³ä¾§çš„é¢œè‰²
 	changeDataOfRectangle(info.biWidth - wid, info.biWidth - 1, 0, info.biHeight - 1, info, rgb[1], newData);
-	//ĞŞ¸ÄÎÄ¼şÉÏ²àµÄÑÕÉ«
+	//ä¿®æ”¹æ–‡ä»¶ä¸Šä¾§çš„é¢œè‰²
 	changeDataOfRectangle(0, info.biWidth - 1, info.biHeight - wid, info.biHeight - 1, info, rgb[2], newData);
-	//ĞŞ¸ÄÎÄ¼ş×ó²àµÄÑÕÉ«
+	//ä¿®æ”¹æ–‡ä»¶å·¦ä¾§çš„é¢œè‰²
 	changeDataOfRectangle(0, wid - 1, 0, info.biHeight / 3 - 1, info, rgb[3], newData);
 	changeDataOfRectangle(0, wid - 1, info.biHeight / 3, info.biHeight * 2 / 3 - 1, info, rgb[4], newData);
 	changeDataOfRectangle(0, wid - 1, info.biHeight * 2 / 3, info.biHeight - 1, info, rgb[5], newData);
-	printf("ÒÑÌí¼Ó²ÊÉ«±ß¿ò\n");
+	printf("å·²æ·»åŠ å½©è‰²è¾¹æ¡†\n");
 	return newData;
 }
 /*********************************************************
-*º¯Êı¹¦ÄÜ£º¸Ä±äÏñËØÊı¾İÎª»Ò¶ÈÖµ
-*º¯ÊıÔ­ĞÍ£º int bmpToGray(BITMAPINFOHEADER info, pixelData pD)
-*º¯ÊıËµÃ÷£º infoÎªÔ­BMPÎÄ¼şµÄĞÅÏ¢Í·£¬rgbÎªÒªÌí¼ÓµÄrgbÊı¾İ£¬pDÎªÏñËØĞÅÏ¢½á¹¹Ìå
-*·µ»ØÖµ£ºint ĞÍ
-*´´½¨ÈË£ºŞÉĞË·¢
-*ĞŞ¸Ä¼ÇÂ¼£º
+*å‡½æ•°åŠŸèƒ½ï¼šæ”¹å˜åƒç´ æ•°æ®ä¸ºç°åº¦å€¼
+*å‡½æ•°åŸå‹ï¼š int bmpToGray(BITMAPINFOHEADER info, pixelData pD)
+*å‡½æ•°è¯´æ˜ï¼š infoä¸ºåŸBMPæ–‡ä»¶çš„ä¿¡æ¯å¤´ï¼Œrgbä¸ºè¦æ·»åŠ çš„rgbæ•°æ®ï¼ŒpDä¸ºåƒç´ ä¿¡æ¯ç»“æ„ä½“
+*è¿”å›å€¼ï¼šint å‹
+*åˆ›å»ºäººï¼šå¥šå…´å‘
+*ä¿®æ”¹è®°å½•ï¼š
 *v1.1    2023.4.20
 *********************************************************/
 int bmpToGray(BMP bmpD1, BMP* bmpD2)
 {
-	//½øĞĞÔ¤´¦Àí
+	//è¿›è¡Œé¢„å¤„ç†
 	bmpD2->header = bmpD1.header;
 	bmpD2->info = bmpD1.info;
 	bmpD2->data = (unsigned char*)malloc(bmpD1.info.biWidth * bmpD1.info.biHeight * sizeof(unsigned char));
@@ -142,7 +144,7 @@ int bmpToGray(BMP bmpD1, BMP* bmpD2)
 			//printf("%d ", *(bmpD2->data));
 		}
 	}
-	//¸Ä±äÎÄ¼şÍ·ÓëĞÅÏ¢Í·Êı¾İ
+	//æ”¹å˜æ–‡ä»¶å¤´ä¸ä¿¡æ¯å¤´æ•°æ®
 	bmpD2->header.bfSize = (DWORD)((int)bmpD1.header.bfSize - (int)(bmpD1.info.biWidth * bmpD1.info.biHeight * bmpD1.info.biBitCount / 8)
 		+ (int)(bmpD1.info.biWidth * bmpD1.info.biHeight));
 	bmpD2->info.biBitCount = 8;
@@ -150,25 +152,20 @@ int bmpToGray(BMP bmpD1, BMP* bmpD2)
 	bmpD2->info.biClrUsed = 256;
 	bmpD2->header.bfOffBits = 107;
 
-	printf("ÒÑÉú³É»Ò¶ÈÍ¼Æ¬\n");
+	printf("å·²ç”Ÿæˆç°åº¦å›¾ç‰‡\n");
 	return 0;
 }
 /*********************************************************
-*º¯Êı¹¦ÄÜ£º½¨Á¢»Ò¶ÈÖ±·½Í¼µÄEXCELÎÄ¼ş
-*º¯ÊıÔ­ĞÍ£º int buildHistogram(unsigned char* data, int pixelCount, int flag, int num)
-*º¯ÊıËµÃ÷£º dataÎªÏñËØÊı¾İµÄÊ×µØÖ·£¬ pixelCountÎªÏñËØ¸öÊı£¬flagÎª1ÔòÒÑ½¨Á¢»Ò¶ÈÍ¼£¬·ñÔòÎª0£¬numÎªÃ¿¸öÏñËØµÄ¼¸Í¨µÀ
-*·µ»ØÖµ£ºint ĞÍ£¬ÈôÎªÉú³É»Ò¶ÈÍ¼£¬Ôò·µ»Ø0£¬·ñÔò·µ»Ø1
-*´´½¨ÈË£ºŞÉĞË·¢
-*ĞŞ¸Ä¼ÇÂ¼£º
+*å‡½æ•°åŠŸèƒ½ï¼šå»ºç«‹ç°åº¦ç›´æ–¹å›¾çš„EXCELæ–‡ä»¶
+*å‡½æ•°åŸå‹ï¼š int buildHistogram(unsigned char* data, int pixelCount, int flag, int num)
+*å‡½æ•°è¯´æ˜ï¼š dataä¸ºåƒç´ æ•°æ®çš„é¦–åœ°å€ï¼Œ pixelCountä¸ºåƒç´ ä¸ªæ•°ï¼Œflagä¸º1åˆ™å·²å»ºç«‹ç°åº¦å›¾ï¼Œå¦åˆ™ä¸º0ï¼Œnumä¸ºæ¯ä¸ªåƒç´ çš„å‡ é€šé“
+*è¿”å›å€¼ï¼šint å‹ï¼Œè‹¥ä¸ºç”Ÿæˆç°åº¦å›¾ï¼Œåˆ™è¿”å›0ï¼Œå¦åˆ™è¿”å›1
+*åˆ›å»ºäººï¼šå¥šå…´å‘
+*ä¿®æ”¹è®°å½•ï¼š
 *v1.1    2023.4.20
 *********************************************************/
-int buildHistogram(unsigned char* data, int pixelCount, int flag)
+int buildHistogram(unsigned char* data, int pixelCount)
 {
-	if (flag == 0)
-	{
-		printf("Î´Éú³É»Ò¶ÈÍ¼£¡£¡£¡ÇëÏÈÑ¡Ôñ¹¦ÄÜ2Éú³É»Ò¶ÈÍ¼\n");
-		return 0;
-	}
 	int histogram[256] = { 0 };
 	for (int i = 0; i < pixelCount; i++)
 	{
@@ -187,13 +184,13 @@ int buildHistogram(unsigned char* data, int pixelCount, int flag)
 		fprintf(fp, "%d\t%d\n", i, histogram[i]);
 	}
 	fclose(fp);
-	printf("ÒÑÉú³É»Ò¶ÈÖ±·½Í¼\n");
+	printf("å·²ç”Ÿæˆç°åº¦ç›´æ–¹å›¾\n");
 	return 1;
 }
 
-/*void edge_detection(unsigned char* data, int width, int height)
+void edge_detection(unsigned char* data, int width, int height)
 {
-	// ´´½¨ĞÂµÄÏñËØÊı×é£¬ÓÃÓÚ±£´æ±ßÔµ¼ì²â½á¹û
+	// åˆ›å»ºæ–°çš„åƒç´ æ•°ç»„ï¼Œç”¨äºä¿å­˜è¾¹ç¼˜æ£€æµ‹ç»“æœ
 	unsigned char* new_data = (unsigned char*)malloc(width * height);
 	if (new_data == NULL) {
 		printf("Failed to allocate memory\n");
@@ -210,7 +207,7 @@ int buildHistogram(unsigned char* data, int pixelCount, int flag)
 		{ 0, 0, 0 },
 		{ -1, -2, -1 }
 	};
-	// ¶ÔÏñËØÊı×é½øĞĞ±ßÔµ¼ì²â
+	// å¯¹åƒç´ æ•°ç»„è¿›è¡Œè¾¹ç¼˜æ£€æµ‹
 	int i, j, x, y;
 	int gx, gy, sum;
 	for (i = 1; i < height - 1; i++) {
@@ -223,14 +220,14 @@ int buildHistogram(unsigned char* data, int pixelCount, int flag)
 				}
 			}
 			sum = abs(gx) + abs(gy);
-			if (sum > 255) sum = 255;   // ·ÀÖ¹ÏñËØÖµÒç³ö
+			if (sum > 255) sum = 255;   // é˜²æ­¢åƒç´ å€¼æº¢å‡º
 			new_data[i * width + j] = 255 - sum;
 		}
 	}
 
-	// ½«±ßÔµ¼ì²âºóµÄÏñËØÊı¾İ¸´ÖÆ»ØÔ­Ê¼Êı×é
+	// å°†è¾¹ç¼˜æ£€æµ‹åçš„åƒç´ æ•°æ®å¤åˆ¶å›åŸå§‹æ•°ç»„
 	memcpy(data, new_data, width * height);
 
-	// ÊÍ·ÅĞÂµÄÏñËØÊı×é
+	// é‡Šæ”¾æ–°çš„åƒç´ æ•°ç»„
 	free(new_data);
-}*/
+}

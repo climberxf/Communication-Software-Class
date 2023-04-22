@@ -7,8 +7,9 @@
 typedef struct
 {
 	unsigned char* data;//像素数据头地址
-	int  row_size;//像素数据每一行的字节数
-}pixelData;//像素数据相关数据
+	BITMAPFILEHEADER header;//文件头
+	BITMAPINFOHEADER info;//信息头
+}BMP;//像素数据相关数据
 
 /*********************************************************
 *函数功能：将新的BMP文件的像素数据、文件头、信息头写入新的BMP文件
@@ -19,23 +20,37 @@ typedef struct
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-int writeData(FILE* fp, BITMAPINFOHEADER info, BITMAPFILEHEADER header, pixelData pD)
+int writeData(BITMAPINFOHEADER info, BITMAPFILEHEADER header, unsigned char* data)
 {
+	FILE* fp;
+	char path[] = "newBMP.bmp";
+	if (fopen_s(&fp, path, "wb") != 0)
+	{
+		printf("fail to open %s", path);
+		return 0;
+	}
+	int row_size = (info.biWidth * info.biBitCount + 31) / 32 * 4;
 	//添加文件头与信息头
 	fwrite(&header, sizeof(header), 1, fp);
 	fwrite(&info, sizeof(info), 1, fp);
-	fseek(fp, header.bfOffBits, SEEK_SET);
-	//写入修改了的像素数据
-	for (int y = 0; y < info.biHeight; y++)
-	{
-		for (int x = 0; x < info.biWidth; x++)
-		{
-			unsigned char* pixel = pD.data + y * pD.row_size + x * info.biBitCount / 8;
-			//pixel指向（x，y）位置处的像素的第一个像素信息
-			fwrite(pixel, sizeof(unsigned char), info.biBitCount / 8, fp);
+
+	if (info.biBitCount == 8)
+	{//灰度图情况
+		unsigned char color_table[1024];
+		for (int i = 0; i < 256; i++) {
+			// 将调色板表中的每个颜色索引的 RGB 值设为相同的值
+			color_table[i * 4] = i;
+			color_table[i * 4 + 1] = i;
+			color_table[i * 4 + 2] = i;
+			color_table[i * 4 + 3] = 0;
 		}
+		fwrite(color_table, sizeof(unsigned char), 1024, fp);//灰度图要添加调色板
 	}
-	return 0;
+	else
+		fseek(fp, header.bfOffBits, SEEK_SET);
+	//写入修改了的像素数据
+	fwrite(data, row_size * info.biHeight, 1, fp);
+	return 1;
 }
 /*********************************************************
 *函数功能：在位图像素数据指定的矩形区域中加入对应的rgb数据
@@ -47,7 +62,7 @@ int writeData(FILE* fp, BITMAPINFOHEADER info, BITMAPFILEHEADER header, pixelDat
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, pixelData pD)
+int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, unsigned char* data)
 {
 	if (startX < 0 || startY < 0 || endX >= info.biWidth || endY >= info.biHeight)
 	{
@@ -56,13 +71,13 @@ int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINF
 	}
 	else
 	{
+		int row_size = (info.biWidth * info.biBitCount + 31) / 32 * 4;
 		for (int y = startY; y <= endY; y++)
 		{
 			for (int x = startX; x <= endX; x++)
 			{
-				unsigned char* pixel = pD.data + y * pD.row_size + x * info.biBitCount / 8;
+				unsigned char* pixel = data + y * row_size + x * info.biBitCount / 8;
 				pixel[0] = rgb.rgbtBlue; pixel[1] = rgb.rgbtGreen; pixel[2] = rgb.rgbtRed;
-				
 			}
 		}
 		return 1;
@@ -77,25 +92,27 @@ int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINF
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-int changeFrameData(BITMAPINFOHEADER info, pixelData pD)
+unsigned char* changeFrameData(BITMAPINFOHEADER info, unsigned char* data)
 {
 	int wid;
 	printf("请输入彩色边框的宽度(单位：像素):");
 	scanf_s("%d", &wid);
-
+	int row_size=(info.biWidth * info.biBitCount + 31) / 32 * 4;
+	unsigned char* newData = (unsigned char*)malloc(row_size * info.biHeight * sizeof(unsigned char));
+	memcpy(newData, data, row_size * info.biHeight);
 	RGBTRIPLE rgb[6] = { {255,0,0},{0,255,0},{0,0,255},{255,0,0},{0,255,0},{0,0,255} };
 	//修改图片底部的颜色
-	changeDataOfRectangle(0, info.biWidth - 1, 0, wid - 1, info, rgb[0], pD);
+	changeDataOfRectangle(0, info.biWidth - 1, 0, wid - 1, info, rgb[0], newData);
 	//修改文件右侧的颜色
-	changeDataOfRectangle(info.biWidth - wid, info.biWidth - 1, 0, info.biHeight - 1, info, rgb[1], pD);
+	changeDataOfRectangle(info.biWidth - wid, info.biWidth - 1, 0, info.biHeight - 1, info, rgb[1], newData);
 	//修改文件上侧的颜色
-	changeDataOfRectangle(0, info.biWidth - 1, info.biHeight - wid, info.biHeight - 1, info, rgb[2], pD);
+	changeDataOfRectangle(0, info.biWidth - 1, info.biHeight - wid, info.biHeight - 1, info, rgb[2], newData);
 	//修改文件左侧的颜色
-	changeDataOfRectangle(0, wid - 1, 0, info.biHeight / 3 - 1, info, rgb[3], pD);
-	changeDataOfRectangle(0, wid - 1, info.biHeight / 3, info.biHeight * 2 / 3 - 1, info, rgb[4], pD);
-	changeDataOfRectangle(0, wid - 1, info.biHeight * 2 / 3, info.biHeight - 1, info, rgb[5], pD);
+	changeDataOfRectangle(0, wid - 1, 0, info.biHeight / 3 - 1, info, rgb[3], newData);
+	changeDataOfRectangle(0, wid - 1, info.biHeight / 3, info.biHeight * 2 / 3 - 1, info, rgb[4], newData);
+	changeDataOfRectangle(0, wid - 1, info.biHeight * 2 / 3, info.biHeight - 1, info, rgb[5], newData);
 	printf("已添加彩色边框\n");
-	return 0;
+	return newData;
 }
 /*********************************************************
 *函数功能：改变像素数据为灰度值
@@ -106,19 +123,33 @@ int changeFrameData(BITMAPINFOHEADER info, pixelData pD)
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-int bmpToGray(BITMAPINFOHEADER info, pixelData pD)
+int bmpToGray(BMP bmpD1, BMP* bmpD2)
 {
-	for (int y = 0; y < info.biHeight; y++)
+	//进行预处理
+	bmpD2->header = bmpD1.header;
+	bmpD2->info = bmpD1.info;
+	bmpD2->data = (unsigned char*)malloc(bmpD1.info.biWidth * bmpD1.info.biHeight * sizeof(unsigned char));
+	int row_size = (bmpD1.info.biWidth * bmpD1.info.biBitCount + 31) / 32 * 4;
+	int i = 0;
+	for (int y = 0; y < bmpD1.info.biHeight; y++)
 	{
-		for (int x = 0; x < info.biWidth; x++)
+		for (int x = 0; x < bmpD1.info.biWidth; x++)
 		{
-			unsigned char* pixel = pD.data + y * pD.row_size + x * info.biBitCount / 8;
+			unsigned char* pixel = bmpD1.data + y * row_size + x * bmpD1.info.biBitCount / 8;
 			unsigned char gray = (unsigned char)(0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0]);
-			pixel[0] = gray;
-			pixel[1] = gray;
-			pixel[2] = gray;
+			bmpD2->data[i] = gray;
+			i++;
+			//printf("%d ", *(bmpD2->data));
 		}
 	}
+	//改变文件头与信息头数据
+	bmpD2->header.bfSize = (DWORD)((int)bmpD1.header.bfSize - (int)(bmpD1.info.biWidth * bmpD1.info.biHeight * bmpD1.info.biBitCount / 8)
+		+ (int)(bmpD1.info.biWidth * bmpD1.info.biHeight));
+	bmpD2->info.biBitCount = 8;
+	bmpD2->info.biSizeImage = (DWORD)((int)(bmpD1.info.biWidth * bmpD1.info.biHeight));
+	bmpD2->info.biClrUsed = 256;
+	bmpD2->header.bfOffBits = 107;
+
 	printf("已生成灰度图片\n");
 	return 0;
 }
@@ -131,7 +162,7 @@ int bmpToGray(BITMAPINFOHEADER info, pixelData pD)
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-int buildHistogram(unsigned char* data, int pixelCount, int flag, int num)
+int buildHistogram(unsigned char* data, int pixelCount, int flag)
 {
 	if (flag == 0)
 	{
@@ -141,7 +172,7 @@ int buildHistogram(unsigned char* data, int pixelCount, int flag, int num)
 	int histogram[256] = { 0 };
 	for (int i = 0; i < pixelCount; i++)
 	{
-		int grayScle = (int)data[i * num];
+		int grayScle = (int)data[i];
 		histogram[grayScle]++;
 	}
 	FILE* fp;
@@ -159,3 +190,47 @@ int buildHistogram(unsigned char* data, int pixelCount, int flag, int num)
 	printf("已生成灰度直方图\n");
 	return 1;
 }
+
+/*void edge_detection(unsigned char* data, int width, int height)
+{
+	// 创建新的像素数组，用于保存边缘检测结果
+	unsigned char* new_data = (unsigned char*)malloc(width * height);
+	if (new_data == NULL) {
+		printf("Failed to allocate memory\n");
+		exit(1);
+	}
+
+	int sobel_x[SOBEL_SIZE][SOBEL_SIZE] = {
+	{ -1, 0, 1 },
+	{ -2, 0, 2 },
+	{ -1, 0, 1 }
+	};
+	int sobel_y[SOBEL_SIZE][SOBEL_SIZE] = {
+		{ 1, 2, 1 },
+		{ 0, 0, 0 },
+		{ -1, -2, -1 }
+	};
+	// 对像素数组进行边缘检测
+	int i, j, x, y;
+	int gx, gy, sum;
+	for (i = 1; i < height - 1; i++) {
+		for (j = 1; j < width - 1; j++) {
+			gx = gy = 0;
+			for (y = 0; y < SOBEL_SIZE; y++) {
+				for (x = 0; x < SOBEL_SIZE; x++) {
+					gx += sobel_x[x][y] * data[(i + y - 1) * width + j + x - 1];
+					gy += sobel_y[x][y] * data[(i + y - 1) * width + j + x - 1];
+				}
+			}
+			sum = abs(gx) + abs(gy);
+			if (sum > 255) sum = 255;   // 防止像素值溢出
+			new_data[i * width + j] = 255 - sum;
+		}
+	}
+
+	// 将边缘检测后的像素数据复制回原始数组
+	memcpy(data, new_data, width * height);
+
+	// 释放新的像素数组
+	free(new_data);
+}*/

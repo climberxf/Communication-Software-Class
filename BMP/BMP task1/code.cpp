@@ -78,6 +78,6 @@ int main()
 		}
 	} while (function);
 	if(bmpD.info.biBitCount == 8)
-		free(bmpD.data);
+		free(bmpD.data);//判断是否运用*data
 	free(bmpData.data);
 }

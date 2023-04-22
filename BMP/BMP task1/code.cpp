@@ -3,11 +3,10 @@
 #include <Windows.h>
 #include <wingdi.h>
 #include "BMP.h"
-int gray_flag = 0;
 int main()
 {
 	char path1[100];
-	printf("ÇëÊäÈëBMPÎÄ¼şµØÖ·£º\n");
+	printf("è¯·è¾“å…¥BMPæ–‡ä»¶åœ°å€ï¼š\n");
 	gets_s(path1, 99);
 	FILE* fp;
 	if (fopen_s(&fp, path1, "rb") != 0)
@@ -17,34 +16,35 @@ int main()
 	}
 
 	BMP bmpData;
-	fread(&bmpData.header, sizeof(bmpData.header), 1, fp);//¸³ÖµBMPÎÄ¼şÍ·
-	fread(&bmpData.info, sizeof(bmpData.info), 1, fp);//¸³ÖµĞÅÏ¢Í·
+	fread(&bmpData.header, sizeof(bmpData.header), 1, fp);//èµ‹å€¼BMPæ–‡ä»¶å¤´
+	fread(&bmpData.info, sizeof(bmpData.info), 1, fp);//èµ‹å€¼ä¿¡æ¯å¤´
 
 	if (bmpData.header.bfType != 0x4D42)
-	{//½øĞĞÀàĞÍÅĞ¶Ï
-		printf("´íÎó£¡£¡£¡²»ÊÇÎ»Í¼ÎÄ¼ş");
+	{//è¿›è¡Œç±»å‹åˆ¤æ–­
+		printf("é”™è¯¯ï¼ï¼ï¼ä¸æ˜¯ä½å›¾æ–‡ä»¶");
 		exit(0);
 	}
 
-	int row_size = (bmpData.info.biWidth * bmpData.info.biBitCount + 31) / 32 * 4;//4×Ö½Ú¶ÔÆë
-	fseek(fp, bmpData.header.bfOffBits, SEEK_SET);//½«ÎÄ¼şÖ¸ÕëÒÆ¶¯µ½ÏñËØÊı¾İ¿ªÊ¼´¦
+	int row_size = (bmpData.info.biWidth * bmpData.info.biBitCount + 31) / 32 * 4;//4å­—èŠ‚å¯¹é½
+	fseek(fp, bmpData.header.bfOffBits, SEEK_SET);//å°†æ–‡ä»¶æŒ‡é’ˆç§»åŠ¨åˆ°åƒç´ æ•°æ®å¼€å§‹å¤„
 	bmpData.data = (unsigned char*)malloc((row_size) * (bmpData.info.biHeight) * sizeof(unsigned char));
 	if (bmpData.data == NULL)
 	{
-		printf("imageDataÉêÇë¿Õ¼äÊ§°Ü£¡");
+		printf("imageDataç”³è¯·ç©ºé—´å¤±è´¥ï¼");
 		exit(0);
 	}
 
-	fread(bmpData.data, row_size * bmpData.info.biHeight * sizeof(unsigned char), 1, fp);//¶ÁËùÓĞÏñËØÊı¾İµ½imageDate¿ªÊ¼µÄÁ¬ĞøµØÖ·ÖĞ
+	fread(bmpData.data, row_size * bmpData.info.biHeight * sizeof(unsigned char), 1, fp);//è¯»æ‰€æœ‰åƒç´ æ•°æ®åˆ°imageDateå¼€å§‹çš„è¿ç»­åœ°å€ä¸­
 	fclose(fp);
-
+	BMP bmpD;
+	bmpD.info.biBitCount = 0;
 	int function;
 	do
 	{
-		printf("\n\nÇë¼ÌĞø²Ù×÷\n");
-		printf("¹¦ÄÜ:\n");
-		printf("0.ÍË³ö³ÌĞò\n1.Ìí¼Ó²ÊÉ«±ß¿ò\n2.×ª»¯Îª»Ò¶ÈÍ¼&&½¨Á¢»Ò¶ÈÖ±·½Í¼\n3.±ßÔµ¼ì²â\n");
-		printf("ÇëÑ¡Ôñ¹¦ÄÜĞòºÅ£º");
+		printf("\n\nè¯·ç»§ç»­æ“ä½œ\n");
+		printf("åŠŸèƒ½:\n");
+		printf("0.é€€å‡ºç¨‹åº\n1.æ·»åŠ å½©è‰²è¾¹æ¡†\n2.è½¬åŒ–ä¸ºç°åº¦å›¾\n3.å»ºç«‹ç°åº¦ç›´æ–¹å›¾\n4.è¾¹ç¼˜æ£€æµ‹\n");
+		printf("è¯·é€‰æ‹©åŠŸèƒ½åºå·ï¼š");
 		scanf_s("%d", &function);
 
 		switch (function)
@@ -53,19 +53,31 @@ int main()
 			break;
 		case 1:
 			{unsigned char* newData1 = changeFrameData(bmpData.info, bmpData.data);
-			writeData(bmpData.info, bmpData.header, newData1);//¸³ÖµÌí¼Ó±ß¿òµÄÏñËØÊı¾İ
-			gray_flag = 0;
+			writeData(bmpData.info, bmpData.header, newData1);//èµ‹å€¼æ·»åŠ è¾¹æ¡†çš„åƒç´ æ•°æ®
 			free(newData1);}
 			break;
 		case 2:
-			BMP bmpD;
 			bmpToGray(bmpData, &bmpD);
 			writeData(bmpD.info, bmpD.header ,bmpD.data);
-			gray_flag = 1;
-			buildHistogram(bmpD.data, bmpD.info.biWidth * bmpD.info.biHeight, gray_flag);
-			free(bmpD.data);
+			break;
+		case 3:
+			if (bmpD.info.biBitCount == 8)
+				buildHistogram(bmpD.data, bmpD.info.biWidth * bmpD.info.biHeight);
+			else
+				printf("å¤±è´¥ï¼ï¼ï¼è¯·å…ˆç”Ÿæˆç°åº¦å›¾ï¼ï¼ï¼");
+			break;
+		case 4:
+			if (bmpD.info.biBitCount == 8)
+			{
+				edge_detection(bmpD.data, bmpD.info.biWidth, bmpD.info.biHeight);
+				writeData(bmpD.info, bmpD.header, bmpD.data);
+			}
+			else
+				printf("å¤±è´¥ï¼ï¼ï¼è¯·å…ˆç”Ÿæˆç°åº¦å›¾ï¼ï¼ï¼");
 			break;
 		}
 	} while (function);
+	if(bmpD.info.biBitCount == 8)
+		free(bmpD.data);
 	free(bmpData.data);
 }

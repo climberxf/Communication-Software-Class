@@ -3,7 +3,13 @@
 #include <stdlib.h>
 #include <Windows.h>
 #include <wingdi.h>
-#define SOBEL_SIZE 3
+#include <math.h>
+#define SOBEL_SIZE 3//sobel算法所用的参数
+#define pathFormat ".\\new picture\\%s%d.bmp"
+#define path_maxSize 100
+int frame_count = 0;
+int gray_count = 0;
+int gradient_count = 0;
 
 typedef struct
 {
@@ -13,18 +19,19 @@ typedef struct
 }BMP;//像素数据相关数据
 
 /*********************************************************
-*函数功能：将新的BMP文件的像素数据、文件头、信息头写入新的BMP文件
-*函数原型： int writeData(FILE* fp, BITMAPINFOHEADER info, BITMAPFILEHEADER header, pixelData pD)
-*函数说明： fp为新的BMP文件指针，info为原BMP文件头信息，header为文件头，pD为像素数据结构体
+*函数功能：将新的BMP文件的像素数据、文件头、信息头写入新路径的BMP文件
+*函数原型： int writeData(BITMAPINFOHEADER info, BITMAPFILEHEADER header, unsigned char* data, char path[])
+*函数说明： info为新的BMP文件头信息，header为文件头，data为新像素数据对应的首地址，path为文件路径
 *返回值：int 型
 *创建人：奚兴发
 *修改记录：
 *v1.1    2023.4.20
+*v1.2    2023.4.23
 *********************************************************/
-int writeData(BITMAPINFOHEADER info, BITMAPFILEHEADER header, unsigned char* data)
+int writeData(BITMAPINFOHEADER info, BITMAPFILEHEADER header, unsigned char* data, char path[])
 {
 	FILE* fp;
-	char path[] = "D:\\users\\documents\\code_C\\Communication Software\\BMP\\BMP task1\\new_bmp.bmp";
+	//char path[] = "new_bmp.bmp";
 	if (fopen_s(&fp, path, "wb") != 0)
 	{
 		printf("fail to open %s", path);
@@ -52,13 +59,14 @@ int writeData(BITMAPINFOHEADER info, BITMAPFILEHEADER header, unsigned char* dat
 	//写入修改了的像素数据
 	fwrite(data, row_size * info.biHeight, 1, fp);
 	fclose(fp);
+	printf("已生成%s",path);
 	return 1;
 }
 /*********************************************************
 *函数功能：在位图像素数据指定的矩形区域中加入对应的rgb数据
-*函数原型： int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, pixelData pD)
+*函数原型： int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINFOHEADER info, RGBTRIPLE rgb, unsigned char* data)
 *函数说明： startX, endX, startY, endY分别为x,y的起始处0<=x(y)<info.biWidth(info.biHeight)
-			info为原BMP文件的信息头，rgb为要添加的rgb数据，pD为像素信息结构体
+			info为原BMP文件的信息头，rgb为要添加的rgb数据，data为新像素数据对应的首地址
 *返回值：int 型，若startX, endX, startY, endY未超出范围函数则返回1，否则返回0
 *创建人：奚兴发
 *修改记录：
@@ -86,20 +94,20 @@ int  changeDataOfRectangle(int startX, int endX, int startY, int endY, BITMAPINF
 	}
 }
 /*********************************************************
-*函数功能：更改边框像素数据
-*函数原型： int changeFrameData(BITMAPINFOHEADER info, pixelData pD)
-*函数说明：info为原BMP文件的信息头，pD为像素信息结构体
+*函数功能：更改边框像素数据,并生成新的bmp文件
+*函数原型： int changeFrameData(BITMAPFILEHEADER header, BITMAPINFOHEADER info, unsigned char* data)
+*函数说明：info为原BMP文件的信息头，header为原BMP文件的信息头，data为原像素数据对应的首地址
 *返回值：int 型
 *创建人：奚兴发
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-unsigned char* changeFrameData(BITMAPINFOHEADER info, unsigned char* data)
+int changeFrameData(BITMAPFILEHEADER header, BITMAPINFOHEADER info, unsigned char* data)
 {
 	int wid;
-	printf("请输入彩色边框的宽度(单位：像素):");
+	printf("\n请输入彩色边框的宽度(单位：像素):");
 	scanf_s("%d", &wid);
-	int row_size=(info.biWidth * info.biBitCount + 31) / 32 * 4;
+	int row_size = (info.biWidth * info.biBitCount + 31) / 32 * 4;
 	unsigned char* newData = (unsigned char*)malloc(row_size * info.biHeight * sizeof(unsigned char));
 	memcpy(newData, data, row_size * info.biHeight);
 	RGBTRIPLE rgb[6] = { {255,0,0},{0,255,0},{0,0,255},{255,0,0},{0,255,0},{0,0,255} };
@@ -113,47 +121,97 @@ unsigned char* changeFrameData(BITMAPINFOHEADER info, unsigned char* data)
 	changeDataOfRectangle(0, wid - 1, 0, info.biHeight / 3 - 1, info, rgb[3], newData);
 	changeDataOfRectangle(0, wid - 1, info.biHeight / 3, info.biHeight * 2 / 3 - 1, info, rgb[4], newData);
 	changeDataOfRectangle(0, wid - 1, info.biHeight * 2 / 3, info.biHeight - 1, info, rgb[5], newData);
-	printf("已添加彩色边框\n");
-	return newData;
+	printf("已添加彩色边框像素数据\n");
+	char path[path_maxSize];
+	sprintf_s(path, pathFormat, "colorful frame", frame_count++);
+	writeData(info, header, newData, path);
+	free(newData);
+	return 0;
 }
 /*********************************************************
-*函数功能：改变像素数据为灰度值
-*函数原型： int bmpToGray(BITMAPINFOHEADER info, pixelData pD)
-*函数说明： info为原BMP文件的信息头，rgb为要添加的rgb数据，pD为像素信息结构体
-*返回值：int 型
+*函数功能：调整图片以满足4字节对齐
+*函数原型： void adjustImage(BMP* bmpD)
+*函数说明：bmp为BMP结构体指针
+*返回值：void 型
 *创建人：奚兴发
 *修改记录：
 *v1.1    2023.4.20
 *********************************************************/
-int bmpToGray(BMP bmpD1, BMP* bmpD2)
+void adjustImage(BMP* bmpD)
 {
+	int row_size = (bmpD->info.biWidth * bmpD->info.biBitCount + 31) / 32 * 4;
+	int width_new = row_size / (bmpD->info.biBitCount / 8);
+	bmpD->info.biWidth = width_new;
+
+	unsigned char* newImgData = (unsigned char*)malloc(sizeof(unsigned char) * row_size * bmpD->info.biHeight);
+	for (int i = 0; i < bmpD->info.biHeight; i++) {
+		for (int j = 0; j < width_new; j++) {
+			for (int c = 0; c < bmpD->info.biBitCount / 8; c++) {
+				if (j < bmpD->info.biWidth) {
+					newImgData[i * row_size + j * bmpD->info.biBitCount / 8 + c] = bmpD->data[i * bmpD->info.biWidth * bmpD->info.biBitCount / 8 + j * bmpD->info.biBitCount / 8 + c];
+				}
+				else {
+					newImgData[i * row_size + j * bmpD->info.biBitCount / 8 + c] = 0;
+				}
+			}
+		}
+	}
+	memcpy(bmpD->data, newImgData, sizeof(unsigned char) * row_size * bmpD->info.biHeight);
+	free(newImgData);
+}
+/*********************************************************
+*函数功能：改变像素数据为灰度值，并生成新的文件
+*函数原型： BMP bmpToGray(BMP bmpD1)
+*函数说明： bmp为BMP结构体
+*返回值：void 型
+*创建人：奚兴发
+*修改记录：
+*v1.1    2023.4.20
+*********************************************************/
+BMP bmpToGray(BMP bmpD1)
+{
+	BMP bmpD2;
 	//进行预处理
-	bmpD2->header = bmpD1.header;
-	bmpD2->info = bmpD1.info;
-	bmpD2->data = (unsigned char*)malloc(bmpD1.info.biWidth * bmpD1.info.biHeight * sizeof(unsigned char));
+	bmpD2.header = bmpD1.header;
+	bmpD2.info = bmpD1.info;
+	//改变文件头与信息头数据
+	bmpD2.header.bfSize = (DWORD)((int)bmpD1.header.bfSize - (int)(bmpD1.info.biWidth * bmpD1.info.biHeight * bmpD1.info.biBitCount / 8)
+		+ (int)(bmpD1.info.biWidth * bmpD1.info.biHeight));
+	bmpD2.info.biBitCount = 8;
+	bmpD2.info.biSizeImage = (DWORD)((int)(bmpD1.info.biWidth * bmpD1.info.biHeight));
+	bmpD2.info.biClrUsed = 256;
+	bmpD2.info.biClrImportant = 256;
+	bmpD2.header.bfOffBits = 107;
+
+	int row_size2= (bmpD2.info.biWidth * bmpD2.info.biBitCount + 31) / 32 * 4;
+	bmpD2.data = (unsigned char*)malloc(row_size2 * bmpD1.info.biHeight * sizeof(unsigned char));
 	int row_size = (bmpD1.info.biWidth * bmpD1.info.biBitCount + 31) / 32 * 4;
 	int i = 0;
 	for (int y = 0; y < bmpD1.info.biHeight; y++)
 	{
 		for (int x = 0; x < bmpD1.info.biWidth; x++)
 		{
-			unsigned char* pixel = bmpD1.data + y * row_size + x * bmpD1.info.biBitCount / 8;
-			unsigned char gray = (unsigned char)(0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0]);
-			bmpD2->data[i] = gray;
+			unsigned char* pixel = bmpD1.data + y * bmpD1.info.biWidth * bmpD1.info.biBitCount / 8 + x * bmpD1.info.biBitCount / 8;
+			unsigned char gray;
+			if (bmpD1.info.biBitCount == 32)
+			{
+				if (pixel[3] == 0)
+					gray = 0;
+				else
+					gray = (unsigned char)(0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0]);
+			}
+			else
+				gray = (unsigned char)(0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0]);
+			bmpD2.data[i] = gray;
 			i++;
-			//printf("%d ", *(bmpD2->data));
 		}
 	}
-	//改变文件头与信息头数据
-	bmpD2->header.bfSize = (DWORD)((int)bmpD1.header.bfSize - (int)(bmpD1.info.biWidth * bmpD1.info.biHeight * bmpD1.info.biBitCount / 8)
-		+ (int)(bmpD1.info.biWidth * bmpD1.info.biHeight));
-	bmpD2->info.biBitCount = 8;
-	bmpD2->info.biSizeImage = (DWORD)((int)(bmpD1.info.biWidth * bmpD1.info.biHeight));
-	bmpD2->info.biClrUsed = 256;
-	bmpD2->header.bfOffBits = 107;
-
-	printf("已生成灰度图片\n");
-	return 0;
+	printf("\n已灰度化像素数据\n");
+	adjustImage(&bmpD2);
+	char path[path_maxSize];
+	sprintf_s(path, pathFormat, "gray picture", gray_count++);
+	writeData(bmpD2.info, bmpD2.header, bmpD2.data, path);
+	return bmpD2;
 }
 /*********************************************************
 *函数功能：建立灰度直方图的EXCEL文件
@@ -173,7 +231,7 @@ int buildHistogram(unsigned char* data, int pixelCount)
 		histogram[grayScle]++;
 	}
 	FILE* fp;
-	if (fopen_s(&fp, "histogram.xls", "wb") != 0)
+	if (fopen_s(&fp, ".\\new picture\\histogram.xls", "wb") != 0)
 	{
 		printf("fail to creat histogram.xls\n");
 		return 0;
@@ -184,12 +242,22 @@ int buildHistogram(unsigned char* data, int pixelCount)
 		fprintf(fp, "%d\t%d\n", i, histogram[i]);
 	}
 	fclose(fp);
-	printf("已生成灰度直方图\n");
+	printf("\n已生成灰度直方图\n");
 	return 1;
 }
-
-void edge_detection(unsigned char* data, int width, int height)
+/*********************************************************
+*函数功能：对灰度图片进行边缘化处理，可进行x、y、xy梯度处理，并生成新的bnp文件
+*函数原型： void edge_detection(BMP bmp,int threshold, char flag)
+*函数说明： bmp为BMP结构体，threshold为边缘化阈值，flag为梯度处理标志（x、y、z分别对应下x、y、xy梯度处理）
+*返回值：void 型
+*创建人：奚兴发
+*修改记录：
+*v1.1    2023.4.20
+*********************************************************/
+void edge_detection(BMP bmp,int threshold, char flag)
 {
+	int width = bmp.info.biWidth;
+	int height = bmp.info.biHeight;
 	// 创建新的像素数组，用于保存边缘检测结果
 	unsigned char* new_data = (unsigned char*)malloc(width * height);
 	if (new_data == NULL) {
@@ -209,25 +277,28 @@ void edge_detection(unsigned char* data, int width, int height)
 	};
 	// 对像素数组进行边缘检测
 	int i, j, x, y;
-	int gx, gy, sum;
+	int gx, gy, sum=0;
 	for (i = 1; i < height - 1; i++) {
 		for (j = 1; j < width - 1; j++) {
 			gx = gy = 0;
 			for (y = 0; y < SOBEL_SIZE; y++) {
 				for (x = 0; x < SOBEL_SIZE; x++) {
-					gx += sobel_x[x][y] * data[(i + y - 1) * width + j + x - 1];
-					gy += sobel_y[x][y] * data[(i + y - 1) * width + j + x - 1];
+					gx += sobel_x[x][y] * bmp.data[(i + y - 1) * width + j + x - 1];
+					gy += sobel_y[x][y] * bmp.data[(i + y - 1) * width + j + x - 1];
 				}
 			}
-			sum = abs(gx) + abs(gy);
-			if (sum > 255) sum = 255;   // 防止像素值溢出
-			new_data[i * width + j] = 255 - sum;
+			if (flag == 'z')
+				sum = abs(gx) + abs(gy);
+			else if (flag == 'y')
+				sum = abs(gy);
+			else if (flag == 'x')
+				sum = abs(gx);
+			new_data[i * width + j] = (BYTE)sum > threshold ? 0xff : 0x00;
 		}
 	}
-
-	// 将边缘检测后的像素数据复制回原始数组
-	memcpy(data, new_data, width * height);
-
-	// 释放新的像素数组
+	char path[path_maxSize];
+	sprintf_s(path, pathFormat, "gradient picture", gradient_count++);
+	writeData(bmp.info, bmp.header, new_data,path);
+	printf("已边缘化像素数据\n");
 	free(new_data);
 }

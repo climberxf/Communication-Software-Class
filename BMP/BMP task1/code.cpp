@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <wingdi.h>
 #include "BMP.h"
+
 int main()
 {
 	char path1[100];
@@ -11,7 +12,7 @@ int main()
 	FILE* fp;
 	if (fopen_s(&fp, path1, "rb") != 0)
 	{
-		printf("fail to open %s",path1);
+		printf("fail to open %s", path1);
 		exit(0);
 	}
 
@@ -33,17 +34,18 @@ int main()
 		printf("imageData申请空间失败！");
 		exit(0);
 	}
-
 	fread(bmpData.data, row_size * bmpData.info.biHeight * sizeof(unsigned char), 1, fp);//读所有像素数据到imageDate开始的连续地址中
 	fclose(fp);
+
 	BMP bmpD;
 	bmpD.info.biBitCount = 0;
 	int function;
+	char path2[path_maxSize];
 	do
 	{
-		printf("\n\n请继续操作\n");
-		printf("功能:\n");
-		printf("0.退出程序\n1.添加彩色边框\n2.转化为灰度图\n3.建立灰度直方图\n4.边缘检测\n");
+		printf("\n\n请继续操作.........\n");
+		printf("/*******************功能*******************/:\n");
+		printf("*0.退出程序\n*1.添加彩色边框\n*2.转化为灰度图\n*3.建立灰度直方图\n*4.边缘检测\n");
 		printf("请选择功能序号：");
 		scanf_s("%d", &function);
 
@@ -52,32 +54,34 @@ int main()
 		case 0:
 			break;
 		case 1:
-			{unsigned char* newData1 = changeFrameData(bmpData.info, bmpData.data);
-			writeData(bmpData.info, bmpData.header, newData1);//赋值添加边框的像素数据
-			free(newData1);}
+			changeFrameData(bmpData.header, bmpData.info, bmpData.data);
 			break;
 		case 2:
-			bmpToGray(bmpData, &bmpD);
-			writeData(bmpD.info, bmpD.header ,bmpD.data);
+			bmpD = bmpToGray(bmpData);
 			break;
 		case 3:
-			if (bmpD.info.biBitCount == 8)
+			if(bmpD.info.biBitCount == 8)
 				buildHistogram(bmpD.data, bmpD.info.biWidth * bmpD.info.biHeight);
 			else
-				printf("失败！！！请先生成灰度图！！！");
+				printf("\n失败！！！请先生成灰度图！！！");
 			break;
 		case 4:
 			if (bmpD.info.biBitCount == 8)
 			{
-				edge_detection(bmpD.data, bmpD.info.biWidth, bmpD.info.biHeight);
-				writeData(bmpD.info, bmpD.header, bmpD.data);
+				int threshold; char flag_gradient;
+				printf("\n请输入阈值(0-255)：");
+				scanf_s("%d", &threshold);
+				printf("请选择进行哪种梯度边缘化(x-x梯度，y-y梯度，z-xy梯度)：");
+				getchar();
+				scanf_s("%c", &flag_gradient,1);
+				edge_detection(bmpD,threshold, flag_gradient);
 			}
 			else
-				printf("失败！！！请先生成灰度图！！！");
+				printf("\n失败！！！请先生成灰度图！！！");
 			break;
 		}
 	} while (function);
-	if(bmpD.info.biBitCount == 8)
-		free(bmpD.data);//判断是否运用*data
 	free(bmpData.data);
+	if(bmpD.info.biBitCount == 8)
+		free(bmpD.data);
 }

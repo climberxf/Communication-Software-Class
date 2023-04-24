@@ -1,8 +1,10 @@
 #pragma once
+#pragma pack(1) // 设置结构体按照字节对齐
 #include <stdio.h>
 #include <stdlib.h>
 #include <Windows.h>
 #include <wingdi.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 #define SOBEL_SIZE 3//sobel算法所用的参数
 #define pathFormat ".\\new picture\\%s%d.bmp"
@@ -10,6 +12,9 @@
 int frame_count = 0;
 int gray_count = 0;
 int gradient_count = 0;
+int pcolor_count = 0;
+int size_count = 0;
+int rotate_count = 0;
 
 typedef struct
 {
@@ -17,6 +22,11 @@ typedef struct
 	BITMAPFILEHEADER header;//文件头
 	BITMAPINFOHEADER info;//信息头
 }BMP;//像素数据相关数据
+typedef struct {
+	unsigned char b;
+	unsigned char g;
+	unsigned char r;
+} PIXEL;// 定义像素点结构体
 
 /*********************************************************
 *函数功能：将新的BMP文件的像素数据、文件头、信息头写入新路径的BMP文件
@@ -301,4 +311,354 @@ void edge_detection(BMP bmp,int threshold, char flag)
 	writeData(bmp.info, bmp.header, new_data,path);
 	printf("已边缘化像素数据\n");
 	free(new_data);
+}
+/*********************************************************
+*函数功能：对灰度图片进行伪彩色化，并生成新的bnp文件
+*函数原型： void toPcolor(BMP bmp)
+*函数说明： bmp为BMP结构体
+*返回值：int 型
+*创建人：吴春阳
+*修改记录：
+*v1.1    2023.4.20
+*********************************************************/
+int toPcolor(BMP bmp)
+{
+	int i, j;
+	float gray_float, r, g, b;
+	unsigned char* pixel = (unsigned char*)malloc(bmp.info.biWidth * bmp.info.biHeight * 3);
+	for (i = 0; i < bmp.info.biHeight; i++) {
+		for (j = 0; j < bmp.info.biWidth; j++) {
+			pixel[i * bmp.info.biWidth * 3+j * 3] = *(bmp.data + i * bmp.info.biWidth + j);
+			// 将unsigned char类型的gray值转换成float类型
+			gray_float = (float)pixel[i * bmp.info.biWidth * 3 + j * 3];
+			// 将灰度值映射到伪彩色空间中
+			if (gray_float <= 63.0) {
+				r = 255.0;  // 红色分量
+				g = gray_float * 4.0;  // 绿色分量
+				b = 0.0;  // 蓝色分量
+			}
+			else if (gray_float <= 127.0) {
+				r = 255 - (gray_float - 64.0) * 4.0;
+				g = 255.0;
+				b = 0.0;
+			}
+			else if (gray_float <= 191.0) {
+				r = 0.0;
+				g = 255.0;
+				b = (gray_float - 128.0) * 4.0;
+			}
+			else {
+				r = 0.0;
+				g = 255 - (gray_float - 192.0) * 4.0;
+				b = 255.0;
+			}
+			// 将每个像素的RGB值保存到pixel数组中
+			pixel[i * bmp.info.biWidth * 3 + j * 3 + 2] = (unsigned char)r;
+			pixel[i * bmp.info.biWidth * 3 + j * 3 + 1] = (unsigned char)g;
+			pixel[i * bmp.info.biWidth * 3 + j * 3] = (unsigned char)b;
+		}
+	}
+
+	bmp.header.bfSize = (DWORD)((int)(bmp.info.biWidth * bmp.info.biHeight * 3) + 14 + 44);
+	bmp.info.biBitCount = 24;
+	bmp.info.biSizeImage = (DWORD)((int)(bmp.info.biWidth * bmp.info.biHeight));
+	bmp.info.biClrUsed = 0;
+	bmp.info.biClrImportant = 0;
+	bmp.header.bfOffBits = 54;
+	char path[path_maxSize];
+	sprintf_s(path, pathFormat, "pcolor picture", pcolor_count++);
+	printf("\n已伪彩色化像素数据\n");
+	writeData(bmp.info, bmp.header, pixel, path);
+	return 1;
+}
+/*********************************************************
+*函数功能：缩放图片到scale倍
+*函数原型： void changeSize(char* inputFile, double scale)
+*函数说明： inputFile是路径的字符串数组的开始地址，scale为放大倍数
+*返回值：void 型
+*创建人：吴春阳
+*修改记录：
+*v1.1    2023.4.20
+*********************************************************/
+int changeSize(char* inputFile, double scale) {
+	FILE* fpIn, * fpOut;
+	BITMAPFILEHEADER fileHeaderIn, fileHeaderOut;
+	BITMAPINFOHEADER infoHeaderIn, infoHeaderOut;
+	unsigned char* imageDataIn, * imageDataOut;
+	int i, j, k, l;
+	int widthIn, heightIn, bitCountIn, rowWidthIn, paddingSizeIn;
+	int widthOut, heightOut, bitCountOut, rowWidthOut, paddingSizeOut;
+	int x, y;
+	double factorX, factorY;
+
+	// 打开输入文件
+	if (fopen_s(&fpIn, inputFile, "rb") != 0) {
+		printf("Error: cannot open input file %s\n", inputFile);
+		return 0;
+	}
+
+	// 读取BMP文件头
+	fread(&fileHeaderIn, sizeof(BITMAPFILEHEADER), 1, fpIn);
+
+	// 读取BMP信息头
+	fread(&infoHeaderIn, sizeof(BITMAPINFOHEADER), 1, fpIn);
+
+	// 获取输入图像宽度、高度和位深度
+	widthIn = infoHeaderIn.biWidth;
+	heightIn = abs(infoHeaderIn.biHeight);
+	bitCountIn = infoHeaderIn.biBitCount;
+
+	// 计算每行像素数据的字节数，以4字节对齐
+	rowWidthIn = ((widthIn * bitCountIn + 31) / 32) * 4;
+
+	// 计算每行需要填充的字节数
+	paddingSizeIn = rowWidthIn - widthIn * bitCountIn / 8;
+
+	// 分配内存保存原始图像数据
+	imageDataIn = (unsigned char*)malloc(heightIn * rowWidthIn);
+	if (imageDataIn == NULL) {
+		printf("Error: out of memory\n");
+		fclose(fpIn);
+		return;
+	}
+	memset(imageDataIn, 0, heightIn * rowWidthIn);
+
+	// 读取原始图像数据
+	for (i = 0; i < heightIn; i++) {
+		fread(imageDataIn + i * rowWidthIn, 1, widthIn * bitCountIn / 8, fpIn);
+		fseek(fpIn, paddingSizeIn, SEEK_CUR);
+	}
+
+	// 关闭输入文件
+	fclose(fpIn);
+
+	// 计算输出图像宽度、高度和位深度
+	widthOut = (int)(widthIn * scale);
+	heightOut = (int)(heightIn * scale);
+	bitCountOut = bitCountIn;
+
+	// 计算每行像素数据的字节数，以4字节对齐
+	rowWidthOut = ((widthOut * bitCountOut + 31) / 32) * 4;
+
+	// 计算每行需要填充的字节数
+	paddingSizeOut = rowWidthOut - widthOut * bitCountOut / 8;
+
+	// 分配内存保存缩放后的图像数据
+	imageDataOut = (unsigned char*)malloc(heightOut * rowWidthOut);
+	if (imageDataOut == NULL) {
+		printf("Error: out of memory\n");
+		free(imageDataIn);
+		return 0;
+	}
+	memset(imageDataOut, 0, heightOut * rowWidthOut);
+
+	// 计算缩放因子
+	factorX = (double)widthIn / (double)widthOut;
+	factorY = (double)heightIn / (double)heightOut;
+
+	// 进行缩放操作
+	for (i = 0; i < heightOut; i++) {
+		for (j = 0; j < widthOut; j++) {
+			x = (int)(j * factorX);
+			y = (int)(i * factorY);
+			for (k = 0; k < bitCountIn / 8; k++) {
+				for (l = 0; l < bitCountOut / 8; l++) {
+					imageDataOut[i * rowWidthOut + j * bitCountOut / 8 + k] =
+						imageDataIn[y * rowWidthIn + x * bitCountIn / 8 + k];
+				}
+			}
+		}
+	}
+
+	// 打开输出文件
+	char path[path_maxSize];
+	sprintf_s(path, pathFormat, "sizeChange picture", size_count);
+	fopen_s(&fpOut, path, "wb");
+	if (fpOut == NULL) {
+		printf("Error: cannot open output file \n");
+		free(imageDataIn);
+		free(imageDataOut);
+		return;
+	}
+
+	// 填充BMP文件头
+	fileHeaderOut.bfType = 0x4D42;
+	fileHeaderOut.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + heightOut * rowWidthOut;
+	fileHeaderOut.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+
+	// 填充BMP信息头
+	infoHeaderOut.biSize = sizeof(BITMAPINFOHEADER);
+	infoHeaderOut.biWidth = widthOut;
+	infoHeaderOut.biHeight = heightOut; // 注意高度为负数表示图像数据从上往下排列
+	infoHeaderOut.biPlanes = 1;
+	infoHeaderOut.biBitCount = bitCountOut;
+	infoHeaderOut.biCompression = 0;
+	infoHeaderOut.biSizeImage = heightOut * rowWidthOut;
+	infoHeaderOut.biXPelsPerMeter = 0;
+	infoHeaderOut.biYPelsPerMeter = 0;
+	infoHeaderOut.biClrUsed = 0;
+	infoHeaderOut.biClrImportant = 0;
+	printf("已生成缩放像素数据\n");
+	// 写入BMP文件头和BMP信息头
+	fwrite(&fileHeaderOut, sizeof(BITMAPFILEHEADER), 1, fpOut);
+	fwrite(&infoHeaderOut, sizeof(BITMAPINFOHEADER), 1, fpOut);
+
+	// 写入缩放后的图像数据
+	for (i = 0; i < heightOut; i++) {
+		fwrite(imageDataOut + i * rowWidthOut, 1, widthOut * bitCountOut / 8, fpOut);
+		for (j = 0; j < paddingSizeOut; j++) {
+			fputc(0x00, fpOut);
+		}
+	}
+	printf("已生成%s\n", path);
+	// 关闭输出文件
+	fclose(fpOut);
+
+	// 释放内存
+	free(imageDataIn);
+	free(imageDataOut);
+	return 1;
+}
+
+// 读取bmp文件头信息
+void readBmpFileHeader(FILE* fp, BITMAPFILEHEADER* bmpFileHeader) {
+	fread(bmpFileHeader, sizeof(BITMAPFILEHEADER), 1, fp);
+}
+
+// 读取bmp图像信息头信息
+void readBmpInfoHeader(FILE* fp, BITMAPINFOHEADER* bmpInfoHeader) {
+	fread(bmpInfoHeader, sizeof(BITMAPINFOHEADER), 1, fp);
+}
+
+// 读取像素点信息
+void readPixel(FILE* fp, PIXEL* pixel) {
+	fread(pixel, sizeof(PIXEL), 1, fp);
+}
+
+// 写入bmp文件头信息
+void writeBmpFileHeader(FILE* fp, BITMAPFILEHEADER* bmpFileHeader) {
+	fwrite(bmpFileHeader, sizeof(BITMAPFILEHEADER), 1, fp);
+}
+
+// 写入bmp图像信息头信息
+void writeBmpInfoHeader(FILE* fp, BITMAPINFOHEADER* bmpInfoHeader) {
+	fwrite(bmpInfoHeader, sizeof(BITMAPINFOHEADER), 1, fp);
+}
+
+// 写入像素点信息
+void writePixel(FILE* fp, PIXEL* pixel) {
+	fwrite(pixel, sizeof(PIXEL), 1, fp);
+}
+
+/*********************************************************
+*函数功能：计算旋转后的坐标
+*函数原型：void getRotatedCoordinate(int x, int y, int centerX, int centerY, double degree, int* newX, int* newY)
+*函数说明： inputFile是路径的字符串数组的开始地址，scale为放大倍数
+*返回值：void 型
+*创建人：辜成伟
+*修改记录：
+*v1.1    2023.4.25
+*********************************************************/
+void getRotatedCoordinate(int x, int y, int centerX, int centerY, double degree, int* newX, int* newY) {
+	double radian = degree * M_PI / 180.0; // 将角度转换为弧度
+	double cosValue = cos(radian);
+	double sinValue = sin(radian);
+	*newX = (int)(cosValue * (double)(x - centerX) - sinValue * (double)(y - centerY) + centerX);
+	*newY = (int)(sinValue * (double)(x - centerX) + cosValue * (double)(y - centerY) + centerY);
+}
+/*********************************************************
+*函数功能：计算旋转后的像素数据，并生成旋转后的图片
+*函数原型：int rotateBmp(char* srcBmpFileName, double degree) 
+*函数说明： srcBmpFileName是路径的字符串数组的开始地址，degree为旋转的角度
+*返回值：int 型
+*创建人：辜成伟
+*修改记录：
+*v1.1    2023.4.25
+*********************************************************/
+int rotateBmp(char* srcBmpFileName, double degree) 
+{
+	FILE* srcFp, * destFp;
+	BITMAPFILEHEADER bmpFileHeader;
+	BITMAPINFOHEADER bmpInfoHeader;
+	PIXEL** pixels, ** newPixels;
+	int i, j, k, centerX, centerY, newX, newY;
+	double radian;
+
+	// 打开源bmp文件
+	if (fopen_s(&srcFp, srcBmpFileName, "rb") != 0) {
+		printf("于rotateBmp函数，打开源bmp文件失败！\n");
+		return 0;
+	}
+
+	// 读取bmp文件头信息
+	readBmpFileHeader(srcFp, &bmpFileHeader);
+
+	// 读取bmp图像信息头信息
+	readBmpInfoHeader(srcFp, &bmpInfoHeader);
+
+	// 计算中心点坐标
+	centerX = bmpInfoHeader.biWidth / 2;
+	centerY = bmpInfoHeader.biHeight / 2;
+
+	// 分配像素点内存
+	pixels = (PIXEL**)malloc(sizeof(PIXEL*) * bmpInfoHeader.biHeight);
+	newPixels = (PIXEL**)malloc(sizeof(PIXEL*) * bmpInfoHeader.biHeight);
+	for (i = 0; i < bmpInfoHeader.biHeight; i++) {
+		pixels[i] = (PIXEL*)malloc(sizeof(PIXEL) * bmpInfoHeader.biWidth);
+		newPixels[i] = (PIXEL*)malloc(sizeof(PIXEL) * bmpInfoHeader.biWidth);
+	}
+
+	// 读取像素点信息
+	for (i = 0; i < bmpInfoHeader.biHeight; i++) {
+		for (j = 0; j < bmpInfoHeader.biWidth; j++) {
+			readPixel(srcFp, &pixels[i][j]);
+		}
+	}
+
+	// 关闭源bmp文件
+	fclose(srcFp);
+
+	// 计算旋转后的像素点信息
+	for (i = 0; i < bmpInfoHeader.biHeight; i++) {
+		for (j = 0; j < bmpInfoHeader.biWidth; j++) {
+			getRotatedCoordinate(j, i, centerX, centerY, degree, &newX, &newY);
+			if (newX >= 0 && newX < bmpInfoHeader.biWidth && newY >= 0 && newY < bmpInfoHeader.biHeight) {
+				newPixels[i][j] = pixels[newY][newX];
+			}
+		}
+	}
+	printf("已生成旋转像素数据\n");
+	// 创建目标bmp文件
+	char destBmpFileName[path_maxSize];
+	sprintf_s(destBmpFileName, pathFormat, "rotate picture", rotate_count++);
+	if (fopen_s(&destFp, destBmpFileName, "wb")!=0) 
+	{
+		printf("于rotateBmp函数，创建目标bmp文件失败！\n");
+		return 0;
+	}
+
+	// 写入bmp文件头信息
+	writeBmpFileHeader(destFp, &bmpFileHeader);
+
+	// 写入bmp图像信息头信息
+	writeBmpInfoHeader(destFp, &bmpInfoHeader);
+
+	// 写入像素点信息
+	for (i = 0; i < bmpInfoHeader.biHeight; i++) {
+		for (j = 0; j < bmpInfoHeader.biWidth; j++) {
+			writePixel(destFp, &newPixels[i][j]);
+		}
+	}
+	printf("已生成%s", destBmpFileName);
+	// 关闭目标bmp文件
+	fclose(destFp);
+
+	// 释放像素点内存
+	for (i = 0; i < bmpInfoHeader.biHeight; i++) {
+		free(pixels[i]);
+		free(newPixels[i]);
+	}
+	free(pixels);
+	free(newPixels);
+	return 1;
 }

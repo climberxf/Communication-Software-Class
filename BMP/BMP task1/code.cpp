@@ -40,12 +40,14 @@ int main()
 	BMP bmpD;
 	bmpD.info.biBitCount = 0;
 	int function;
+	double scale;  //缩放大小
+	double degree;  //旋转角度
 	char path2[path_maxSize];
 	do
 	{
 		printf("\n\n请继续操作.........\n");
 		printf("/*******************功能*******************/:\n");
-		printf("*0.退出程序\n*1.添加彩色边框\n*2.转化为灰度图\n*3.建立灰度直方图\n*4.边缘检测\n");
+		printf("*0.退出程序\n*1.添加彩色边框\n*2.转化为灰度图\n*3.建立灰度直方图\n*4.边缘检测\n*5.转化为伪彩色\n*6.缩放图像\n*7.旋转图片\n");
 		printf("请选择功能序号：");
 		scanf_s("%d", &function);
 
@@ -54,14 +56,14 @@ int main()
 		case 0:
 			break;
 		case 1:
-			changeFrameData(bmpData.header, bmpData.info, bmpData.data);
+			changeFrameData(bmpData.header, bmpData.info, bmpData.data);//对原文件进行操作
 			break;
 		case 2:
-			bmpD = bmpToGray(bmpData);
+			bmpD = bmpToGray(bmpData);//对原文件进行操作
 			break;
 		case 3:
-			if(bmpD.info.biBitCount == 8)
-				buildHistogram(bmpD.data, bmpD.info.biWidth * bmpD.info.biHeight);
+			if (bmpD.info.biBitCount == 8)
+				buildHistogram(bmpD.data, bmpD.info.biWidth * bmpD.info.biHeight);//对新生成的灰度图操作
 			else
 				printf("\n失败！！！请先生成灰度图！！！");
 			break;
@@ -73,12 +75,29 @@ int main()
 				scanf_s("%d", &threshold);
 				printf("请选择进行哪种梯度边缘化(x-x梯度，y-y梯度，z-xy梯度)：");
 				getchar();
-				scanf_s("%c", &flag_gradient,1);
-				edge_detection(bmpD,threshold, flag_gradient);
+				scanf_s("%c", &flag_gradient, 1);
+				edge_detection(bmpD, threshold, flag_gradient);//对新生成的灰度图操作
 			}
 			else
 				printf("\n失败！！！请先生成灰度图！！！");
 			break;
+		case 5:
+			if (bmpD.info.biBitCount == 8)
+			{
+				toPcolor(bmpD);
+			}
+			else
+				printf("\n失败！！！请先生成灰度图！！！");
+			break;
+		case 6:
+			printf("\n请输入缩放的倍数：");
+			scanf_s("%lf", &scale);
+			changeSize(path1, scale);
+			break;
+		case 7:
+			printf("\n请输入旋转的角度：");
+			scanf_s("%lf", &degree);
+			rotateBmp(path1, degree);
 		}
 	} while (function);
 	free(bmpData.data);
